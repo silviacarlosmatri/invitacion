@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f5f0e9" />
+  <title>Convite Interativo – Envelope Realista V5 (Super Rápido e Elegante)</title>
+  <style>
+    :root {
+      --bg1:#f8f4ef; --bg2:#efe8df; --ring:rgba(207,172,85,.32);
+      --seal-left:39.4%; --seal-top:69.1%; --seal-width:21.2%; --seal-height:17.6%;
+      --slot-left:18.2%; --slot-top:48.6%; --slot-width:63.6%; --slot-height:24.6%;
+      --env-left:8.0%; --env-top:53.0%; --env-width:84.0%; --env-height:34.5%;
+      --paper-width:100%; --paper-height:100%; --paper-radius:22px;
+      --paper-ivory-1:#fff9f1; --paper-ivory-2:#f8ead6; --paper-ivory-3:#ecd7b6; --paper-edge:#cfa974; --paper-shadow:rgba(79,52,25,.24);
+      --fold-shadow:rgba(115,77,35,.30); --fold-shadow-strong:rgba(72,43,18,.42); --fold-highlight:rgba(255,255,255,.30);
+      --frame:#f7f2eb; --frame-line:rgba(176,146,88,.25);
+      --shadow-heavy:0 42px 78px rgba(82,56,34,.28), 0 14px 30px rgba(82,56,34,.18);
+    }
+    * { box-sizing:border-box; }
+    html, body { height:100%; margin:0; }
+    body {
+      min-height:100svh; display:grid; place-items:center; overflow:hidden;
+      background:radial-gradient(1100px 900px at 50% 14%, rgba(255,255,255,.94), rgba(255,255,255,0) 58%), linear-gradient(180deg, var(--bg1) 0%, var(--bg2) 100%);
+      font-family:Arial, Helvetica, sans-serif; -webkit-tap-highlight-color:transparent; user-select:none;
+    }
+    .scene {
+      position:relative; width:min(100vw, calc(100svh * 1080 / 1920)); height:min(100svh, calc(100vw * 1920 / 1080)); aspect-ratio:1080 / 1920;
+      overflow:hidden; isolation:isolate; background:#f6f0e8; perspective:2000px; transform-style:preserve-3d; touch-action:manipulation;
+    }
+    .bg,.video,.final { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; background:#f6f0e8; }
+    .bg { z-index:1; } .final { z-index:2; opacity:0; transition:opacity .35s ease; } .video { z-index:3; opacity:0; transition:opacity .22s linear; }
+    .scene.opened .video,.scene.playing .video { opacity:1; }
+    .scene.ended .final,.scene.paper-run .final,.scene.expanding .final,.scene.expanded .final { opacity:1; }
+
+    .hotspot { position:absolute; left:var(--seal-left); top:var(--seal-top); width:var(--seal-width); height:var(--seal-height); z-index:20; border:0; background:transparent; cursor:pointer; border-radius:50%; outline:none; }
+    .hotspot::before { content:""; position:absolute; inset:14%; border-radius:50%; box-shadow:0 0 0 0 var(--ring); animation:pulse 2.1s infinite; opacity:.82; pointer-events:none; }
+    .scene.opened .hotspot,.scene.playing .hotspot,.scene.ended .hotspot,.scene.paper-run .hotspot,.scene.expanding .hotspot,.scene.expanded .hotspot { pointer-events:none; }
+    .scene.opened .hotspot::before,.scene.playing .hotspot::before,.scene.ended .hotspot::before,.scene.paper-run .hotspot::before,.scene.expanding .hotspot::before,.scene.expanded .hotspot::before { animation:none; opacity:0; }
+
+    /* máscara extra para esconder o contorno branco próximo ao lacre */
+    .seal-fix {
+      position:absolute;
+      left:calc(var(--seal-left) - 1.0%);
+      top:calc(var(--seal-top) - 0.6%);
+      width:calc(var(--seal-width) + 2.0%);
+      height:calc(var(--seal-height) + 1.2%);
+      z-index:12;
+      pointer-events:none;
+      background:
+        radial-gradient(circle at 50% 54%, rgba(240,233,223,0) 22%, rgba(240,233,223,.20) 39%, rgba(240,233,223,.72) 58%, rgba(240,233,223,.92) 68%, rgba(240,233,223,0) 78%),
+        linear-gradient(180deg, rgba(240,233,223,0) 0%, rgba(240,233,223,.42) 60%, rgba(240,233,223,.90) 100%);
+      mix-blend-mode:multiply;
+      opacity:0;
+      transition:opacity .18s linear;
+    }
+    .scene.paper-run .seal-fix, .scene.expanding .seal-fix, .scene.expanded .seal-fix { opacity:1; }
+
+    .envelope-depth { position:absolute; left:calc(var(--slot-left) - 2.0%); top:calc(var(--slot-top) + 5.8%); width:calc(var(--slot-width) + 4.0%); height:23%; z-index:4; opacity:0; pointer-events:none; filter:blur(16px); background:radial-gradient(ellipse at center, rgba(71,46,20,.26), rgba(71,46,20,0) 74%); transform:scale(.84); transition:opacity .55s ease, transform .75s ease; }
+    .scene.paper-run .envelope-depth,.scene.expanding .envelope-depth { opacity:.94; transform:scale(1); }
+
+    .paper-slot { position:absolute; left:var(--env-left); top:var(--env-top); width:var(--env-width); height:var(--env-height); z-index:6; overflow:hidden; pointer-events:none; isolation:isolate; opacity:0; border-radius:18px; transform-origin:center center; clip-path:inset(0 round 18px); transition:opacity .10s linear; box-shadow:0 24px 40px rgba(79,52,25,.12); }
+    .scene.paper-run .paper-slot, .scene.expanding .paper-slot, .scene.expanded .paper-slot { opacity:1; }
+    .scene.paper-run .paper-slot { animation:paperStageDirectionalV12 980ms 140ms cubic-bezier(.22,.7,.18,1) forwards; }
+    .paper-slot::before { content:""; position:absolute; inset:0; z-index:7; pointer-events:none; background:linear-gradient(180deg, rgba(255,255,255,.24), rgba(255,255,255,0) 24%, rgba(234,214,184,.20) 82%, rgba(198,163,112,.20) 100%); opacity:.86; }
+    .paper-slot::after { content:""; position:absolute; inset:0; z-index:8; pointer-events:none; background:radial-gradient(circle at 48% 28%, rgba(255,255,255,.12), rgba(255,255,255,0) 34%), linear-gradient(180deg, rgba(255,245,229,.18), rgba(248,234,214,.10)); mix-blend-mode:multiply; opacity:.70; }
+    .slot-cover { position:absolute; inset:0; z-index:9; pointer-events:none; background:linear-gradient(180deg, rgba(238,229,219,0) 0%, rgba(238,229,219,0) 55%, rgba(238,229,219,.20) 74%, rgba(238,229,219,.32) 100%); transform:translateY(0); opacity:0; transition:opacity .24s ease; }
+    .scene.paper-run .slot-cover, .scene.expanding .slot-cover { opacity:.56; }
+    .scene.expanded .slot-cover { opacity:0; }
+
+    .paper { position:absolute; inset:0; width:100%; height:100%; transform-style:preserve-3d; transform-origin:50% 100%; transform:translateY(18%) scale(.96); opacity:0; z-index:2; will-change:transform, opacity, filter; filter:drop-shadow(0 20px 32px rgba(79,52,25,.20)); border-radius:inherit; }
+    .scene:not(.paper-run):not(.expanding):not(.expanded) .paper { opacity:0 !important; filter:none; }
+    .scene.paper-run .paper { animation:paperLiftDirectionalV12 340ms cubic-bezier(.2,.75,.2,1) forwards; }
+
+    .paper-back { position:absolute; inset:0; border-radius:inherit; background:radial-gradient(circle at 16% 14%, rgba(255,255,255,.22), rgba(255,255,255,0) 26%), radial-gradient(circle at 84% 22%, rgba(255,255,255,.12), rgba(255,255,255,0) 24%), linear-gradient(180deg, var(--paper-ivory-1) 0%, #fff4e6 18%, var(--paper-ivory-2) 68%, var(--paper-ivory-3) 100%); box-shadow:0 28px 40px var(--paper-shadow), inset 0 0 0 1px rgba(207,169,116,.38), inset 0 18px 34px rgba(255,255,255,.26); }
+    .sheet-layer { display:none; }
+    .sheet-layer::before { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg, rgba(255,255,255,.34), rgba(255,255,255,0) 28%), linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.12) 50%, rgba(255,255,255,0)); }
+    .sheet-layer.top { display:none; }
+    .sheet-layer.mid { display:none; }
+    .sheet-layer.bot { display:none; }
+    .scene.paper-run .sheet-layer.mid { animation:none; }
+    .scene.paper-run .sheet-layer.bot { animation:none; }
+    .paper-glow { position:absolute; inset:0; border-radius:inherit; box-shadow:inset 0 0 0 1px rgba(255,255,255,.44); pointer-events:none; }
+    .crease { position:absolute; pointer-events:none; opacity:0; z-index:10; mix-blend-mode:multiply; transform-origin:center center; }
+    .crease.c1 { top:0; left:50%; width:108px; height:100%; transform:translateX(-50%) scaleX(.68); background:linear-gradient(90deg, rgba(115,77,35,0) 0%, rgba(115,77,35,.020) 10%, rgba(115,77,35,.06) 22%, rgba(115,77,35,.14) 34%, rgba(72,43,18,.28) 44%, rgba(72,43,18,.40) 49%, rgba(255,255,255,.24) 53%, rgba(115,77,35,.16) 62%, rgba(115,77,35,.06) 76%, rgba(115,77,35,0) 100%); filter:blur(11px); box-shadow:inset -22px 0 34px rgba(255,255,255,.08), inset 22px 0 36px rgba(72,43,18,.12); } .crease.c2 { left:0; top:50%; width:100%; height:94px; transform:translateY(-50%) scaleY(.68); background:linear-gradient(180deg, rgba(115,77,35,0) 0%, rgba(115,77,35,.018) 10%, rgba(115,77,35,.06) 22%, rgba(115,77,35,.13) 36%, rgba(72,43,18,.24) 44%, rgba(72,43,18,.34) 49%, rgba(255,255,255,.20) 53%, rgba(115,77,35,.15) 62%, rgba(115,77,35,.06) 76%, rgba(115,77,35,0) 100%); filter:blur(11px); box-shadow:inset 0 -22px 34px rgba(255,255,255,.07), inset 0 22px 36px rgba(72,43,18,.10); }
+    .paper-edge { position:absolute; inset:0; border-radius:inherit; pointer-events:none; box-shadow:0 0 0 1px rgba(207,169,116,.34) inset, 0 0 0 3px rgba(255,249,241,.14) inset; }
+    .paper-highlight { position:absolute; inset:0; border-radius:inherit; pointer-events:none; background:linear-gradient(110deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.16) 22%, rgba(255,255,255,0) 42%), radial-gradient(circle at 50% 18%, rgba(255,255,255,.20), rgba(255,255,255,0) 28%); mix-blend-mode:screen; }
+
+    .overlay-dim { position:fixed; inset:0; z-index:998; opacity:0; pointer-events:none; background:radial-gradient(circle at center, rgba(255,255,255,0) 0%, rgba(245,240,233,.84) 100%); transition:opacity .72s ease; }
+    .scene.expanding ~ .overlay-dim,.scene.expanded ~ .overlay-dim { opacity:1; }
+
+    .invite-overlay { position:fixed; left:0; top:0; width:100px; height:100px; z-index:999; opacity:0; overflow:hidden; pointer-events:none; border-radius:22px; background:linear-gradient(180deg, var(--paper-ivory-1), var(--paper-ivory-2)); border:1px solid rgba(207,169,116,.26); box-shadow:var(--shadow-heavy); transition:opacity .18s linear, box-shadow .35s ease; will-change:left, top, width, height, border-radius, opacity; transform:translateZ(0); }
+    .invite-overlay.visible { opacity:1; }
+    .invite-overlay.fullscreen { left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; border-radius:0; box-shadow:none; border-color:transparent; pointer-events:auto; }
+    .invite-overlay iframe { display:block; width:100%; height:100%; border:0; background:#fff; opacity:1; transition:none; }
+    .preload-frame { display:none !important; }
+    @keyframes paperLiftDirectionalV12 {
+      0% { transform:translateY(18%) scale(.96); opacity:.08; filter:drop-shadow(0 8px 16px rgba(79,52,25,.10)); }
+      24% { transform:translateY(12%) scale(.97); opacity:.40; filter:drop-shadow(0 12px 18px rgba(79,52,25,.12)); }
+      58% { transform:translateY(6%) scale(.985); opacity:.84; filter:drop-shadow(0 16px 22px rgba(79,52,25,.15)); }
+      100% { transform:translateY(0%) scale(1); opacity:1; filter:drop-shadow(0 20px 30px rgba(79,52,25,.20)); }
+    }
+    @keyframes paperStageDirectionalV12 {
+      0% { left:var(--env-left); top:var(--env-top); width:var(--env-width); height:var(--env-height); border-radius:18px; clip-path:inset(0 round 18px); }
+      12% { left:var(--env-left); top:var(--env-top); width:var(--env-width); height:var(--env-height); border-radius:18px; clip-path:inset(0 round 18px); }
+      40% { left:0%; top:var(--env-top); width:92%; height:var(--env-height); border-radius:18px; clip-path:inset(0 round 18px); }
+      66% { left:0%; top:var(--env-top); width:100%; height:var(--env-height); border-radius:18px; clip-path:inset(0 round 18px); }
+      84% { left:0%; top:var(--env-top); width:100%; height:calc(100% - var(--env-top)); border-radius:14px; clip-path:inset(0 round 14px); }
+      100% { left:0%; top:0%; width:100%; height:100%; border-radius:0; clip-path:inset(0 round 0); }
+    }
+    @keyframes creaseVerticalV12 {
+      0%, 10% { opacity:0; transform:translateX(-50%) scaleX(.32); }
+      18% { opacity:.22; transform:translateX(-50%) scaleX(.64); }
+      28% { opacity:.54; transform:translateX(-50%) scaleX(1.12); }
+      40% { opacity:.70; transform:translateX(-50%) scaleX(1.28); }
+      52% { opacity:.46; transform:translateX(-50%) scaleX(1.00); }
+      66% { opacity:.20; transform:translateX(-50%) scaleX(.62); }
+      100% { opacity:0; transform:translateX(-50%) scaleX(.24); }
+    }
+    @keyframes creaseHorizontalV12 {
+      0%, 64% { opacity:0; transform:translateY(-50%) scaleY(.30); }
+      72% { opacity:.20; transform:translateY(-50%) scaleY(.66); }
+      82% { opacity:.46; transform:translateY(-50%) scaleY(1.16); }
+      90% { opacity:.34; transform:translateY(-50%) scaleY(.92); }
+      100% { opacity:0; transform:translateY(-50%) scaleY(.22); }
+    }
+
+    @keyframes pulse { 0%{box-shadow:0 0 0 0 var(--ring);opacity:.85;}72%{box-shadow:0 0 0 18px rgba(207,172,85,0);opacity:0;}100%{box-shadow:0 0 0 0 rgba(207,172,85,0);opacity:0;} }
+    .crease.c3, .crease.c4 { display:none; }
+    .scene.paper-run .crease.c1 { animation:creaseVerticalV12 980ms 140ms cubic-bezier(.22,.7,.18,1) forwards; }
+    .scene.paper-run .crease.c2 { animation:creaseHorizontalV12 980ms 140ms cubic-bezier(.22,.7,.18,1) forwards; }
+    @media (prefers-reduced-motion: reduce) { .hotspot::before,.video,.final,.paper,.sheet-layer,.envelope-depth,.slot-cover,.invite-overlay,.overlay-dim { animation:none !important; transition:none !important; } }
+  </style>
+</head>
+<body>
+  <main class="scene" id="scene" aria-label="Convite interativo com carta saindo do envelope em animação realista">
+    <img class="bg" src="envelope.png" alt="Imagem inicial do envelope e do convite" />
+    <img class="final" id="final" src="poster_ultimo_quadro.jpg" alt="Último quadro da abertura do envelope" />
+    <video id="video" class="video" playsinline webkit-playsinline preload="auto"><source src="Sobre abriendo.mp4" type="video/mp4" /></video>
+    <audio id="bgm" preload="auto" loop><source src="Perfect.mp3" type="audio/mpeg" /></audio>
+
+    <div class="envelope-depth" aria-hidden="true"></div>
+    <div class="seal-fix" aria-hidden="true"></div>
+
+    <div class="paper-slot" id="paperSlot" aria-hidden="true">
+      <div class="slot-cover"></div>
+      <div class="paper" id="paper">
+        <div class="paper-back"></div>
+        <div class="sheet-layer top"></div>
+        <div class="sheet-layer mid"></div>
+        <div class="sheet-layer bot"></div>
+        <div class="crease c1"></div>
+        <div class="crease c2"></div>
+        <div class="paper-glow"></div>
+        <div class="paper-edge"></div>
+        <div class="paper-highlight"></div>
+      </div>
+    </div>
+
+    <button class="hotspot" id="hotspot" type="button" aria-label="Abrir o envelope"></button>
+  </main>
+
+  <div class="overlay-dim" aria-hidden="true"></div>
+
+  <div class="invite-overlay" id="inviteOverlay" aria-hidden="true">
+    <iframe id="inviteFrame" src="about:blank" title="Convite Silvia e Carlos — Canva"></iframe>
+  </div>
+
+  <script>
+    (() => {
+      class EnvelopeRealisticV5 {
+        constructor() {
+          this.scene = document.getElementById('scene');
+          this.video = document.getElementById('video');
+          this.hotspot = document.getElementById('hotspot');
+          this.paper = document.getElementById('paper');
+          this.paperSlot = document.getElementById('paperSlot');
+          this.overlay = document.getElementById('inviteOverlay');
+          this.inviteFrame = document.getElementById('inviteFrame');
+          this.bgm = document.getElementById('bgm');
+          this.inviteMarkup = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Invitación Silvia & Carlos</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #fff;
+    }
+    body { font-family: Arial, Helvetica, sans-serif; }
+    .canva-wrap {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      border-radius: 0;
+      will-change: transform;
+      background: #fff;
+    }
+    .canva-wrap iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      padding: 0;
+      margin: 0;
+      display: block;
+      background: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="canva-wrap">
+    <iframe
+      loading="eager"
+      src="https://www.canva.com/design/DAHI8SLlwVQ/wZjEMHcVRznfRSbqelbuhQ/view?embed"
+      allowfullscreen="allowfullscreen"
+      allow="fullscreen">
+    </iframe>
+  </div>
+</body>
+</html>`;
+          this.stage = 'idle';
+          this.inviteReady = false;
+          this.expansionDone = false;
+          this.audioStarted = false;
+          this.reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          this.bind();
+          this.reset();
+        }
+        bind() {
+          this.hotspot.addEventListener('click', (e) => { e.stopPropagation(); this.open(); });
+          this.video.addEventListener('play', () => {
+            this.scene.classList.add('opened', 'playing');
+            this.scene.classList.remove('ended', 'paper-run', 'expanding', 'expanded');
+            this.stage = 'playing';
+          });
+          this.video.addEventListener('ended', () => this.handleVideoEnd());
+          this.inviteFrame.addEventListener('load', () => {
+            const hasSrcdoc = !!this.inviteFrame.getAttribute('srcdoc');
+            const loadedSrc = this.inviteFrame.getAttribute('src') || '';
+            if (!hasSrcdoc && (!loadedSrc || loadedSrc === 'about:blank')) return;
+            this.overlay.classList.add('visible', 'ready');
+            this.inviteReady = true;
+            this.tryStartAudio();
+          });
+          window.addEventListener('resize', () => { if (this.stage === 'expanding' || this.stage === 'expanded') this.seedOverlayFromPaper(); });
+        }
+        reset() {
+          this.scene.classList.remove('opened', 'playing', 'ended', 'paper-run', 'expanding', 'expanded');
+          this.overlay.classList.remove('visible', 'fullscreen', 'ready');
+          this.overlay.setAttribute('aria-hidden', 'true');
+          this.stage = 'idle';
+          this.inviteReady = false;
+          this.expansionDone = false;
+          this.audioStarted = false;
+          try { this.video.pause(); this.video.currentTime = 0; } catch (_) {}
+          try { this.bgm.pause(); this.bgm.currentTime = 0; this.bgm.muted = false; } catch (_) {}
+          this.inviteFrame.removeAttribute('srcdoc');
+          this.inviteFrame.src = 'about:blank';
+          this.overlay.style.left = '0px';
+          this.overlay.style.top = '0px';
+          this.overlay.style.width = '100px';
+          this.overlay.style.height = '100px';
+          this.overlay.style.borderRadius = '22px';
+        }
+        open() {
+          if (this.stage !== 'idle') return;
+          this.scene.classList.add('opened');
+          this.video.muted = false; this.video.volume = 1;
+          try { this.video.currentTime = 0; } catch (_) {}
+          const p = this.video.play();
+          if (p && typeof p.then === 'function') { p.catch(() => { this.video.muted = true; this.video.play().catch(() => {}); }); }
+        }
+        handleVideoEnd() {
+          this.scene.classList.remove('playing');
+          this.scene.classList.add('ended');
+          this.stage = 'ended';
+          if (this.reduceMotion) {
+            this.scene.classList.add('paper-run', 'expanding', 'expanded');
+            this.seedOverlayFromPaper(true);
+            this.overlay.classList.add('visible', 'fullscreen');
+            this.overlay.setAttribute('aria-hidden', 'false');
+            this.expansionDone = true;
+            this.loadFreshInvite();
+            return;
+          }
+          setTimeout(() => { this.scene.classList.add('paper-run'); this.stage = 'paper-run'; }, 120);
+          setTimeout(() => {
+            this.seedOverlayFromPaper();
+            this.scene.classList.add('expanding');
+            this.stage = 'expanding';
+            this.overlay.classList.add('visible');
+            this.overlay.setAttribute('aria-hidden', 'false');
+            this.loadFreshInvite();
+            this.animateOverlayFullscreen(12);
+          }, 1380);
+        }
+        seedOverlayFromPaper(forceCenter = false) {
+          const paperRect = this.paper.getBoundingClientRect();
+          const slotRect = this.paperSlot.getBoundingClientRect();
+          const width = forceCenter ? slotRect.width * 0.86 : paperRect.width;
+          const height = forceCenter ? slotRect.height * 1.18 : paperRect.height;
+          const left = forceCenter ? slotRect.left + (slotRect.width - width) / 2 : paperRect.left;
+          const top = forceCenter ? slotRect.top + slotRect.height * 0.02 : paperRect.top;
+          this.overlay.style.left = left + 'px';
+          this.overlay.style.top = top + 'px';
+          this.overlay.style.width = width + 'px';
+          this.overlay.style.height = height + 'px';
+        }
+        animateOverlayFullscreen(steps) {
+          const rect = this.overlay.getBoundingClientRect();
+          const start = { left: rect.left, top: rect.top, width: rect.width, height: rect.height, radius: 22 };
+          const end = { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight, radius: 0 };
+          let current = 0;
+          const stepFn = () => {
+            current += 1;
+            const t = Math.min(current / steps, 1);
+            const e = 1 - Math.pow(1 - t, 3);
+            const lerp = (a, b) => a + (b - a) * e;
+            this.overlay.style.left = lerp(start.left, end.left) + 'px';
+            this.overlay.style.top = lerp(start.top, end.top) + 'px';
+            this.overlay.style.width = lerp(start.width, end.width) + 'px';
+            this.overlay.style.height = lerp(start.height, end.height) + 'px';
+            this.overlay.style.borderRadius = lerp(start.radius, end.radius) + 'px';
+            if (current < steps) {
+              requestAnimationFrame(stepFn);
+            } else {
+              this.overlay.classList.add('fullscreen');
+              this.scene.classList.add('expanded');
+              this.stage = 'expanded';
+              this.expansionDone = true;
+              this.tryStartAudio();
+            }
+          };
+          requestAnimationFrame(stepFn);
+        }
+        loadFreshInvite() {
+          if (this.inviteFrame.getAttribute('srcdoc') === this.inviteMarkup && this.inviteReady) return;
+          this.inviteReady = false;
+          this.overlay.classList.remove('ready');
+          this.inviteFrame.removeAttribute('srcdoc');
+          this.inviteFrame.src = 'about:blank';
+          this.inviteFrame.setAttribute('srcdoc', this.inviteMarkup);
+        }
+        async tryStartAudio() {
+          if (this.audioStarted) return;
+          if (!this.expansionDone || !this.inviteReady) return;
+          this.audioStarted = true;
+          try { this.bgm.volume = 1; this.bgm.muted = false; await this.bgm.play(); } catch (_) {}
+        }
+      }
+      new EnvelopeRealisticV5();
+    })();
+  </script>
+</body>
+</html>
